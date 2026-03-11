@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notes App</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <main class="page">
+    <section class="app-shell">
+      <div class="hero">
+        <div>
+          <p class="eyebrow">ECS Notes Demo</p>
+          <h1>Sticky Sessions, Stateful vs Stateless</h1>
+          <p class="hero-text">
+            A notes app to demonstrate container behavior, session affinity using ALB Sticky seeions, and externalized state.
+          </p>
+        </div>
+        <div class="hero-badges">
+          <span class="chip">{{ user_id }}</span>
+          <span class="chip">{{ region }}</span>
+          <span class="chip">{{ availability_zone }}</span>
+        </div>
+      </div>
+
+      <section class="content-grid">
+        <div class="card editor-card">
+          <div class="card-header">
+            <div>
+              <h2>Draft Note</h2>
+              <p>Autosaves every 3 seconds while you type.</p>
+            </div>
+            <div class="status-wrap">
+              <span class="status-dot"></span>
+              <span id="autosave-status">{{ last_saved }}</span>
+            </div>
+          </div>
+
+          <form method="POST" action="/save" id="note-form">
+            <label for="note" class="label">Write your note</label>
+            <textarea
+              id="note"
+              name="note"
+              placeholder="Start typing your thoughts here..."
+            >{{ note_text }}</textarea>
+
+            <div class="editor-footer">
+              <div class="meta-line">
+                <span>Container:</span>
+                <strong>{{ instance_id }}</strong>
+              </div>
+
+              <div class="button-group">
+                <button type="button" class="btn btn-secondary" id="clear-btn">Clear</button>
+                <button type="submit" class="btn btn-primary">Save Note</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="card side-card">
+          <div class="side-block">
+            <h3>Environment</h3>
+            <div class="info-list">
+              <div class="info-item">
+                <span>Instance ID</span>
+                <strong>{{ instance_id }}</strong>
+              </div>
+              <div class="info-item">
+                <span>Region</span>
+                <strong>{{ region }}</strong>
+              </div>
+              <div class="info-item">
+                <span>Availability Zone</span>
+                <strong>{{ availability_zone }}</strong>
+              </div>
+              <div class="info-item">
+                <span>User</span>
+                <strong>{{ user_id }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-block">
+            <h3>Demo Goals</h3>
+            <ul class="demo-list">
+              <li>Show note behavior with sticky sessions enabled</li>
+              <li>Show behavior when routed to a different container</li>
+              <li>Compare stateful memory vs externalized storage</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    window.NOTES_APP = {
+      initialText: {{ note_text|tojson }},
+      initialLastSaved: {{ last_saved|tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
