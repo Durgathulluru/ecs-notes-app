@@ -15,15 +15,15 @@
       <div class="hero">
         <div>
           <p class="eyebrow">ECS Notes Demo</p>
-          <h1>Sticky Sessions, Stateful vs Stateless</h1>
+          <h1>Stateless Notes App with DynamoDB</h1>
           <p class="hero-text">
-            A notes app to demonstrate container behavior, session affinity using ALB Sticky seeions, and externalized state.
+            Notes are stored in DynamoDB so every ECS task behind the load balancer can serve the same data consistently.
           </p>
         </div>
+
         <div class="hero-badges">
-          <span class="chip">{{ user_id }}</span>
-          <span class="chip">{{ region }}</span>
-          <span class="chip">{{ availability_zone }}</span>
+          <span class="chip">User: {{ user_id }}</span>
+          <span class="chip">Instance: {{ instance_id }}</span>
         </div>
       </div>
 
@@ -31,12 +31,12 @@
         <div class="card editor-card">
           <div class="card-header">
             <div>
-              <h2>Draft Note</h2>
-              <p>Autosaves every 3 seconds while you type.</p>
+              <h2>Create a Note</h2>
+              <p>Save notes and verify they persist across ECS task changes.</p>
             </div>
             <div class="status-wrap">
               <span class="status-dot"></span>
-              <span id="autosave-status">{{ last_saved }}</span>
+              <span id="save-status">Connected to DynamoDB</span>
             </div>
           </div>
 
@@ -45,12 +45,12 @@
             <textarea
               id="note"
               name="note"
-              placeholder="Start typing your thoughts here..."
+              placeholder="Write your note here..."
             >{{ note_text }}</textarea>
 
             <div class="editor-footer">
               <div class="meta-line">
-                <span>Container:</span>
+                <span>Current task:</span>
                 <strong>{{ instance_id }}</strong>
               </div>
 
@@ -64,33 +64,35 @@
 
         <div class="card side-card">
           <div class="side-block">
-            <h3>Environment</h3>
-            <div class="info-list">
-              <div class="info-item">
-                <span>Instance ID</span>
-                <strong>{{ instance_id }}</strong>
-              </div>
-              <div class="info-item">
-                <span>Region</span>
-                <strong>{{ region }}</strong>
-              </div>
-              <div class="info-item">
-                <span>Availability Zone</span>
-                <strong>{{ availability_zone }}</strong>
-              </div>
-              <div class="info-item">
-                <span>User</span>
-                <strong>{{ user_id }}</strong>
-              </div>
+            <h3>Saved Notes</h3>
+            <p>Previously saved notes for this user.</p>
+
+            <div class="notes-list">
+              {% if notes %}
+                {% for note in notes %}
+                  <div class="note-list-item">
+                    <div class="note-list-top">
+                      <span class="note-badge">Saved</span>
+                      <span class="note-time">{{ note.created_at }}</span>
+                    </div>
+                    <div class="note-preview">{{ note.note_text }}</div>
+                    <div class="note-meta">Task that wrote it: {{ note.instance_id }}</div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="empty-notes">
+                  No notes saved yet. Create your first one from the editor.
+                </div>
+              {% endif %}
             </div>
           </div>
 
           <div class="side-block">
             <h3>Demo Goals</h3>
             <ul class="demo-list">
-              <li>Show note behavior with sticky sessions enabled</li>
-              <li>Show behavior when routed to a different container</li>
-              <li>Compare stateful memory vs externalized storage</li>
+              <li>Show that notes persist even when the task changes</li>
+              <li>Demonstrate shared state across ECS tasks</li>
+              <li>Compare with the earlier in-memory stateful version</li>
             </ul>
           </div>
         </div>
@@ -98,12 +100,6 @@
     </section>
   </main>
 
-  <script>
-    window.NOTES_APP = {
-      initialText: {{ note_text|tojson }},
-      initialLastSaved: {{ last_saved|tojson }}
-    };
-  </script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
