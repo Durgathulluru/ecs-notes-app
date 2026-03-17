@@ -24,6 +24,8 @@
         <div class="hero-badges">
           <span class="chip">User: {{ user_id }}</span>
           <span class="chip">Instance: {{ instance_id }}</span>
+          <span class="chip">AZ: {{ availability_zone }}</span>
+          <a class="chip chip-link danger-chip" href="{{ url_for('logout') }}">Logout</a>
         </div>
       </div>
 
@@ -31,7 +33,7 @@
         <div class="card editor-card">
           <div class="card-header">
             <div>
-              <h2>Create a Note</h2>
+              <h2>{% if note_id %}Edit Note{% else %}Create a Note{% endif %}</h2>
               <p>Save notes and verify they persist across ECS task changes.</p>
             </div>
             <div class="status-wrap">
@@ -41,6 +43,8 @@
           </div>
 
           <form method="POST" action="/save" id="note-form">
+            <input type="hidden" name="note_id" id="note_id" value="{{ note_id }}">
+
             <label for="note" class="label">Write your note</label>
             <textarea
               id="note"
@@ -52,11 +56,16 @@
               <div class="meta-line">
                 <span>Current task:</span>
                 <strong>{{ instance_id }}</strong>
+                <span class="meta-separator">|</span>
+                <span>AZ:</span>
+                <strong>{{ availability_zone }}</strong>
               </div>
 
               <div class="button-group">
-                <button type="button" class="btn btn-secondary" id="clear-btn">Clear</button>
-                <button type="submit" class="btn btn-primary">Save Note</button>
+                <button type="button" class="btn btn-secondary" id="clear-btn">New Note</button>
+                <button type="submit" class="btn btn-primary">
+                  {% if note_id %}Update Note{% else %}Save Note{% endif %}
+                </button>
               </div>
             </div>
           </form>
@@ -65,19 +74,20 @@
         <div class="card side-card">
           <div class="side-block">
             <h3>Saved Notes</h3>
-            <p>Previously saved notes for this user.</p>
+            <p>Previously saved notes for this user. Click any note to edit it.</p>
 
             <div class="notes-list">
               {% if notes %}
                 {% for note in notes %}
-                  <div class="note-list-item">
+                  <a class="note-list-item link-card {% if note.note_id == note_id %}selected-note{% endif %}"
+                     href="{{ url_for('home', note_id=note.note_id) }}">
                     <div class="note-list-top">
-                      <span class="note-badge">Saved</span>
-                      <span class="note-time">{{ note.created_at }}</span>
+                      <span class="note-badge">{% if note.note_id == note_id %}Editing{% else %}Saved{% endif %}</span>
+                      <span class="note-time">{{ note.updated_at or note.created_at }}</span>
                     </div>
                     <div class="note-preview">{{ note.note_text }}</div>
-                    <div class="note-meta">Task that wrote it: {{ note.instance_id }}</div>
-                  </div>
+                    <div class="note-meta">Task that last wrote it: {{ note.instance_id }}</div>
+                  </a>
                 {% endfor %}
               {% else %}
                 <div class="empty-notes">
@@ -93,6 +103,7 @@
               <li>Show that notes persist even when the task changes</li>
               <li>Demonstrate shared state across ECS tasks</li>
               <li>Compare with the earlier in-memory stateful version</li>
+              <li>Show authenticated user-specific notes</li>
             </ul>
           </div>
         </div>
