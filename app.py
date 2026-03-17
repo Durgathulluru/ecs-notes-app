@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, make_response
 import socket
 import os
 import json
@@ -22,7 +22,7 @@ dynamodb = boto3.resource("dynamodb", region_name=REGION)
 table = dynamodb.Table(TABLE_NAME)
 
 
-def decode_jwt_payload(jwt_token):
+def decode_jwt_payload(jwt_token: str) -> dict:
     try:
         parts = jwt_token.split(".")
         if len(parts) < 2:
@@ -36,10 +36,10 @@ def decode_jwt_payload(jwt_token):
         return {}
 
 
-def get_current_user():
+def get_current_user() -> dict:
     """
-    For ALB + Cognito authentication, ALB forwards identity headers to the target.
-    We try to read a friendly identity from x-amzn-oidc-data first, then fallback.
+    ALB + Cognito passes authenticated user info in headers.
+    We use a friendly identity for display and a stable identity for storage.
     """
     oidc_data = request.headers.get("x-amzn-oidc-data", "")
     oidc_identity = request.headers.get("x-amzn-oidc-identity", "")
@@ -69,13 +69,11 @@ def get_current_user():
     }
 
 
-def get_availability_zone():
-    # First prefer explicit environment variable if you add it later.
+def get_availability_zone() -> str:
     az = os.environ.get("AWS_AZ")
     if az:
         return az
 
-    # Try ECS task metadata endpoint v4.
     metadata_uri = os.environ.get("ECS_CONTAINER_METADATA_URI_V4")
     if not metadata_uri:
         return "unknown-az"
@@ -91,7 +89,7 @@ def get_availability_zone():
 AVAILABILITY_ZONE = get_availability_zone()
 
 
-def get_notes(user_id):
+def get_notes(user_id: str) -> list:
     response = table.query(
         KeyConditionExpression=Key("user_id").eq(user_id),
         ScanIndexForward=False
@@ -99,7 +97,7 @@ def get_notes(user_id):
     return response.get("Items", [])
 
 
-def get_note(user_id, note_id):
+def get_note(user_id: str, note_id: str) -> dict | None:
     response = table.get_item(
         Key={
             "user_id": user_id,
@@ -109,7 +107,7 @@ def get_note(user_id, note_id):
     return response.get("Item")
 
 
-def create_note(user_id, note_text):
+def create_note(user_id: str, note_text: str) -> None:
     now = datetime.utcnow()
     note_id = now.isoformat()
     formatted_time = now.strftime("%b %d, %Y — %I:%M %p")
@@ -126,7 +124,7 @@ def create_note(user_id, note_text):
     )
 
 
-def update_note(user_id, note_id, note_text):
+def update_note(user_id: str, note_id: str, note_text: str) -> None:
     existing = get_note(user_id, note_id)
     if not existing:
         create_note(user_id, note_text)
@@ -195,15 +193,28 @@ def save():
 @app.route("/logout")
 def logout():
     if not COGNITO_DOMAIN or not COGNITO_CLIENT_ID:
-        return redirect(url_for("home"))
+        response = make_response(redirect(url_for("home")))
+    else:
+        query = urllib.parse.urlencode({
+            "client_id": COGNITO_CLIENT_ID,
+            "logout_uri": LOGOUT_REDIRECT_URI
+        })
+        logout_url = f"https://{COGNITO_DOMAIN}/logout?{query}"
+        response = make_response(redirect(logout_url))
 
-    query = urllib.parse.urlencode({
-        "client_id": COGNITO_CLIENT_ID,
-        "logout_uri": LOGOUT_REDIRECT_URI
-    })
+    # Clear ALB authentication cookies so ALB no longer treats the user as authenticated
+    for cookie_name in [
+        "AWSELBAuthSessionCookie",
+        "AWSELBAuthSessionCookie-0",
+        "AWSELBAuthSessionCookie-1",
+        "AWSELBAuthSessionCookie-2",
+        "AWSELBAuthSessionCookie-3",
+        "AWSALBAuthNonce"
+    ]:
+        response.set_cookie(cookie_name, "", expires=0, path="/")
+        response.set_cookie(cookie_name, "", max_age=0, path="/")
 
-    logout_url = f"https://{COGNITO_DOMAIN}/logout?{query}"
-    return redirect(logout_url)
+    return response
 
 
 @app.route("/health")
